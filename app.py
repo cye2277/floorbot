@@ -351,7 +351,6 @@ Alline Chen ★★★★★
     海島型地板－材料：(1)實木面材+表面噴漆塗裝+夾板層(2)美耐板材+夾板層。
     超耐磨地板－材料：高密度木纖維複合板+超耐磨Al2O3表面塗層。
  
-
 8. 德國高能得思地板保固期保固內容如何？
     為了使客戶有更完善的服務，我們提供一年的施工保固，確保客戶使用地板一年內，如有施工不良或材料品質的問題，可以得到我們地板施工保固的確認。
 
@@ -365,7 +364,6 @@ Alline Chen ★★★★★
     雙長邊有倒角，短邊無倒角
     雙長邊有小(微)倒角，短邊則無倒角
  
-
 11. 高能得思地板用何種配件收邊？
     高能得思地板能提供的收邊配件相當多樣，如踢腳板、L型收邊條、一字收邊條、起步條、分隔條、小圓弧收邊條、樓收條或矽利康收邊等可因應不同環境需要。
 
@@ -501,23 +499,14 @@ Alline Chen ★★★★★
     林:永績森林是有計劃性的植栽、養護及砍伐的森林,讓森林資
     源可以永續不問斷的發展·Kronotex為全球唯一木芯基材採用布蘭登堡原樹林區製造
 
-26.什麼是kronotex環保產品宣言？
-    為了讓環保產品平衡表更具意義,這個生態平衡表必須是客観可比較的。
-    因此,為了讓我們的客戶很容易了解,並比對我們的產品生命週期分析和原料的環境產品資料。
-    我們堅定並承諾所有產品的透明化政策。我們自願在環保產品聲明中,公開木製品的生態平衡表。
-    每一份聲明是由建築環境協會所正式頒發。這個聲明版本是由國際有效ISO標準和德國建築環境部門在共同合作的基礎上所制訂出來的。
-    我們公開木製品生態平衡表。
-
-27.Kronotex高能得思直營門市和一般的品牌經銷門市有何不同？
-    高能得思地板全台有8家門市，都是德國授權的直營門市，我們有公司專業的施工團隊，相當重視售前售後的服務品質，對客戶的服務有保障。
-    台灣幾乎大部分的地板都是委由經銷商去販售，我們也知道有些廠商都是經銷很多品牌，一切都是以利益為主，什麼地板好賣，就經銷什麼地板，不會注重品牌形象和售後服務。
-    也有一些品牌地板，門市的外表看似品牌專賣店，如果仔細詢問了解，他們也都是經銷商，有些經銷商也都是以短期的利益和銷售量為主，地板賣的不好，隨時可以停止經銷，客戶地板之後如果發生問題，需要維修服務，可能也會找不到人。
-
-【地板產品資料】
-"model": "D3597 TIMELESS OAK BEIGE 永恆貝格橡木", "color": "淺木色", "waterproof": False,"原價": 7880, "價格": 5880, "thickness": 10mm
-"model": "KIWI 40522 Opal Oak Coffee 歐柏咖啡橡木", "color": "深木色", "waterproof": True, "原價": 7180, "價格": 5080, "thickness": 5.5mm
-"model": "Oriental Oak White 東方白橡木", "color": "灰色", "waterproof": False , "原價": 6680, "價格": 4880, "thickness": 8mm
 """
+
+
+floor_data = [
+    {"model": "D3597 TIMELESS OAK BEIGE 永恆貝格橡木", "color": "淺木色", "waterproof": False, "原價": 7880, "價格": 5880, "thickness": 10},
+    {"model": "KIWI 40522 Opal Oak Coffee 歐柏咖啡橡木", "color": "深木色", "waterproof": True, "原價": 7180, "價格": 5080, "thickness": 5.5},
+    {"model": "Oriental Oak White 東方白橡木", "color": "灰色", "waterproof": False, "原價": 6680, "價格": 4880, "thickness": 8}
+]
 
 # ======== 3. Webhook 接收區 ========
 @app.route("/callback", methods=['POST'])
@@ -532,13 +521,32 @@ def callback():
 def handle_message(event):
     user_msg = event.message.text
 
+    def filter_floors(user_input):
+        result = []
+
+        if "防水" in user_input:
+            result = [f for f in floor_data if f["waterproof"]]
+
+        # 可以加更多條件（厚度、顏色、預算）
+        return result
+
+    filtered_floors = filter_floors(user_msg)
+
+    if filtered_floors:
+        product_text = "\n".join([
+            f'{f["model"]} / 顏色：{f["color"]} / 價格：{f["價格"]}元 / 厚度：{f["thickness"]}mm / 防水：{"是" if f["waterproof"] else "否"}'
+            for f in filtered_floors
+        ])
+    else:
+        product_text = "目前找不到符合條件的地板。"
+
     # 呼叫 OpenAI ChatGPT 來分析需求並推薦地板
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": (
-                "你是一位地板顧問，會根據使用者輸入進行公司介紹、地板知識說明或推薦產品"
-                f"\n以下是你可參考的知識內容：\n\n{knowledge_text}"
+                "你是一位地板顧問，會根據使用者輸入進行公司介紹、地板知識說明"
+                f"\n以下是你可參考的知識內容：\n\n{knowledge_text}， 並且根據下列資料推薦適合的地板：{product_text}"
             )},
             {"role": "user", "content": user_msg}
         ],
