@@ -1,8 +1,15 @@
 import os
-from flask import Flask, request
+from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
+from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 import openai
+import os
+import psycopg2
+from datetime import datetime
+
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -11,6 +18,34 @@ app = Flask(__name__)
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
 LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+
+# PostgreSQL 連線參數
+DB_PARAMS = {
+    'host': os.getenv("DB_HOST"),
+    'port': os.getenv("DB_PORT"),
+    'dbname': os.getenv("DB_NAME"),
+    'user': os.getenv("DB_USER"),
+    'password': os.getenv("DB_PASSWORD")
+}
+
+def init_db():
+    conn = psycopg2.connect(**DB_PARAMS)
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS chat_logs (
+            id SERIAL PRIMARY KEY,
+            timestamp TEXT,
+            user_id TEXT,
+            user_message TEXT,
+            bot_reply TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
@@ -435,7 +470,10 @@ floor_data = [
 def callback():
     signature = request.headers['X-Line-Signature']
     body = request.get_data(as_text=True)
-    handler.handle(body, signature)
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        abort(400)
     return 'OK'
 
 @app.route("/", methods=["GET"])
@@ -445,7 +483,9 @@ def index():
 # ======== 4. 訊息處理區 ========
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    user_id = event.source.user_id
     user_msg = event.message.text
+    timestamp = datetime.now().isoformat()
 
     def filter_floors(user_input):
         result = []
@@ -479,8 +519,18 @@ def handle_message(event):
         temperature=0.7
     )
 
-    reply = response['choices'][0]['message']['content']
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+    bot_reply = response.choices[0].message.content
+
+    conn = psycopg2.connect(**DB_PARAMS)
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO chat_logs (timestamp, user_id, user_message, bot_reply)
+        VALUES (%s, %s, %s, %s)
+    """, (timestamp, user_id, user_msg, bot_reply))
+    conn.commit()
+    conn.close()
+
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=bot_reply))
 
 if __name__ == "__main__":
     app.run(port=5000)
