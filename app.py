@@ -507,6 +507,45 @@ def handle_message(event):
     conn = psycopg2.connect(**DB_PARAMS)
     c = conn.cursor()
 
+    img_keywords = ["圖片", "照片", "看看", "圖", "photo", "picture", "image"]
+
+    if any(keyword in user_msg.lower() for keyword in img_keywords):
+        # 是圖片需求，不送給 ChatGPT，而由你處理
+        matched_model = None
+        for model_name in floor_image_map:
+            if model_name.lower() in user_msg.lower():
+                matched_model = model_name
+                break
+
+
+        if matched_model:
+            # 找到對應型號 → 傳圖片
+            images = [
+                ImageSendMessage(
+                    original_content_url=url,
+                    preview_image_url=url
+                )
+                for url in floor_image_map[matched_model][:3]
+            ]
+            image_response_message = f"這是「{matched_model}」的圖片："
+            messages = [TextSendMessage(text=image_response_message)] + images
+        else:
+            # 沒找到地板型號 → 給個通用提示
+            image_response_message = "請告訴我您想看的地板型號，我就能提供圖片！我們目前支持三種型號：D3597 TIMELESS OAK BEIGE 永恆貝格橡木， KIWI 40522 Opal Oak Coffee 歐柏咖啡橡木 或是 Oriental Oak White 東方白橡木"
+            messages = [TextSendMessage(text=image_response_message)]
+
+        # 最多回傳 5 則（LINE 限制）
+        messages = messages[:5]
+        line_bot_api.reply_message(event.reply_token, messages)
+        c.execute("""
+            INSERT INTO chat_logs (timestamp, user_id, user_message, bot_reply)
+            VALUES (%s, %s, %s, %s)
+        """, (timestamp, user_id, user_msg, image_response_message))
+        conn.commit()
+        conn.close()
+
+        return  # 結束這次處理，不再進入 ChatGPT API
+
 
     # 客戶要求真人服務的關鍵字
     keywords = ["真人", "專人", "銷售", "找人", "聯絡人", "打電話", "真人客服"]
