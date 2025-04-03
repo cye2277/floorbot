@@ -2,7 +2,7 @@ import os
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, ImageSendMessage
 import openai
 import os
 import psycopg2
@@ -465,6 +465,11 @@ floor_data = [
     {"model": "Oriental Oak White 東方白橡木", "color": "灰色", "waterproof": False, "原價": 6680, "價格": 4880, "thickness": 8}
 ]
 
+floor_image_map = {
+    "KIWI 40522 Opal Oak Coffee": "https://www.kronotex.com.tw/USER/Userfile/file/ff230710145014289511.jpg",
+    "D3597 TIMELESS OAK BEIGE": "https://www.kronotex.com.tw/USER/Userfile/file/ff230710145014289511.jpg",
+    "Oriental Oak White": "https://www.kronotex.com.tw/USER/Userfile/file/ff230710144554174555.jpg",
+}
 # ======== 3. Webhook 接收區 ========
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -549,7 +554,20 @@ def handle_message(event):
     conn.commit()
     conn.close()
 
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=bot_reply))
+    matched_url = None
+    for model_name, image_url in floor_image_map.items():
+        if model_name in bot_reply:
+            matched_url = image_url
+            break
+
+    messages = [TextSendMessage(text=bot_reply)]
+    if matched_url:
+        messages.append(ImageSendMessage(
+            original_content_url=matched_url,
+            preview_image_url=matched_url
+        ))
+
+    line_bot_api.reply_message(event.reply_token, messages)
 
 if __name__ == "__main__":
     app.run(port=5000)
