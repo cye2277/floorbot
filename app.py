@@ -466,9 +466,9 @@ floor_data = [
 ]
 
 floor_image_map = {
-    "KIWI 40522 Opal Oak Coffee": "https://www.kronotex.com.tw/USER/Userfile/file/ff230710145014289511.jpg",
-    "D3597 TIMELESS OAK BEIGE": "https://www.kronotex.com.tw/USER/Userfile/file/ff230710145014289511.jpg",
-    "Oriental Oak White": "https://www.kronotex.com.tw/USER/Userfile/file/ff230710144554174555.jpg",
+    "KIWI 40522 Opal Oak Coffee": ["https://www.kronotex.com.tw/USER/Userfile/file/ff230710145014289511.jpg","https://www.kronotex.com.tw/USER/Userfile/file/ff240103155308113648.jpg","https://www.kronotex.com.tw/USER/Userfile/file/ff240628141957742183.jpg"],
+    "D3597 TIMELESS OAK BEIGE": ["https://www.kronotex.com.tw/USER/Userfile/file/ff230710145014289511.jpg","https://www.kronotex.com.tw/USER/Userfile/file/ff240729140026590460_l.jpg?t=1722232826970","https://www.kronotex.com.tw/USER/Userfile/file/ff220830210308016703.jpg"],
+    "Oriental Oak White": ["https://www.kronotex.com.tw/USER/Userfile/file/ff230710144554174555.jpg","https://www.kronotex.com.tw/USER/Userfile/file/ff240806140923824105.jpg?t=1722924579708","https://www.kronotex.com.tw/USER/Userfile/file/ff230427172054959370.jpg"],
 }
 # ======== 3. Webhook 接收區 ========
 @app.route("/callback", methods=['POST'])
@@ -554,18 +554,14 @@ def handle_message(event):
     conn.commit()
     conn.close()
 
-    matched_url = None
-    for model_name, image_url in floor_image_map.items():
-        if model_name in bot_reply:
-            matched_url = image_url
-            break
-
     messages = [TextSendMessage(text=bot_reply)]
-    if matched_url:
-        messages.append(ImageSendMessage(
-            original_content_url=matched_url,
-            preview_image_url=matched_url
-        ))
+    for model_name, image_list in floor_image_map.items():
+        if model_name in bot_reply:
+            for img_url in image_list:
+                messages.append(ImageSendMessage(
+                    original_content_url=img_url,
+                    preview_image_url=img_url
+                ))
 
     line_bot_api.reply_message(event.reply_token, messages)
 
