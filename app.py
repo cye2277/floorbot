@@ -485,6 +485,19 @@ def callback():
 def index():
     return "FloorBot is running!", 200
 
+def format_floor_data(data):
+    result = "以下是目前可供選擇的地板資訊：\n"
+    for item in data:
+        result += (
+            f"【{item['model']}】\n"
+            f"- 顏色：{item['color']}\n"
+            f"- 厚度：{item['thickness']}mm\n"
+            f"- 是否防水：{'是' if item['waterproof'] else '否'}\n"
+            f"- 原價：{item['原價']} 元\n"
+            f"- 特價：{item['價格']} 元\n\n"
+        )
+    return result
+
 # ======== 4. 訊息處理區 ========
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
@@ -513,32 +526,35 @@ def handle_message(event):
         return  # 結束這次處理，不再進入 ChatGPT API
 
 
-    def filter_floors(user_input):
-        result = []
+    # def filter_floors(user_input):
+    #     result = []
 
-        if "防水" in user_input:
-            result = [f for f in floor_data if f["waterproof"]]
+    #     if "防水" in user_input:
+    #         result = [f for f in floor_data if f["waterproof"]]
 
-        # 可以加更多條件（厚度、顏色、預算）
-        return result
+    #     # 可以加更多條件（厚度、顏色、預算）
+    #     return result
 
-    filtered_floors = filter_floors(user_msg)
+    # filtered_floors = filter_floors(user_msg)
 
-    if filtered_floors:
-        product_text = "\n".join([
-            f'{f["model"]} / 顏色：{f["color"]} / 價格：{f["價格"]}元 / 厚度：{f["thickness"]}mm / 防水：{"是" if f["waterproof"] else "否"}'
-            for f in filtered_floors
-        ])
-    else:
-        product_text = "目前找不到符合條件的地板。"
+    # if filtered_floors:
+    #     product_text = "\n".join([
+    #         f'{f["model"]} / 顏色：{f["color"]} / 價格：{f["價格"]}元 / 厚度：{f["thickness"]}mm / 防水：{"是" if f["waterproof"] else "否"}'
+    #         for f in filtered_floors
+    #     ])
+    # else:
+    #     product_text = "目前找不到符合條件的地板。"
 
     # 呼叫 OpenAI ChatGPT 來分析需求並推薦地板
+
+    formatted_floor_info = format_floor_data(floor_data)
+
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": (
                 "你是一位地板顧問，會根據使用者輸入進行公司介紹、地板知識說明"
-                f"\n以下是你可參考的知識內容：\n\n{knowledge_text}， 並且根據下列資料推薦適合的地板：{product_text}"
+                f"\n以下是你可參考的知識內容：\n\n{knowledge_text}， 並且根據下列資料推薦適合的地板：{formatted_floor_info}"
             )},
             {"role": "user", "content": user_msg}
         ],
@@ -562,6 +578,8 @@ def handle_message(event):
                     original_content_url=img_url,
                     preview_image_url=img_url
                 ))
+    # 最多回傳 5 則（LINE 限制）
+    messages = messages[:5]
 
     line_bot_api.reply_message(event.reply_token, messages)
 
