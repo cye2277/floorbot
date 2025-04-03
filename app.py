@@ -438,6 +438,10 @@ def callback():
     handler.handle(body, signature)
     return 'OK'
 
+@app.route("/", methods=["GET"])
+def index():
+    return "FloorBot is running!", 200
+
 # ======== 4. 訊息處理區 ========
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
