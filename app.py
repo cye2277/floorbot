@@ -486,6 +486,27 @@ def handle_message(event):
     user_id = event.source.user_id
     user_msg = event.message.text
     timestamp = datetime.now().isoformat()
+    conn = psycopg2.connect(**DB_PARAMS)
+    c = conn.cursor()
+
+
+    # 客戶要求真人服務的關鍵字
+    keywords = ["真人", "專人", "銷售", "找人", "聯絡人", "打電話", "真人客服"]
+    if any(keyword in user_msg for keyword in keywords):
+        agent_message = "好的，我們會通知銷售專員，請稍等～"
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=agent_message)
+        )
+        c.execute("""
+            INSERT INTO chat_logs (timestamp, user_id, user_message, bot_reply)
+            VALUES (%s, %s, %s, %s)
+        """, (timestamp, user_id, user_msg, agent_message))
+        conn.commit()
+        conn.close()
+
+        return  # 結束這次處理，不再進入 ChatGPT API
+
 
     def filter_floors(user_input):
         result = []
@@ -521,8 +542,6 @@ def handle_message(event):
 
     bot_reply = response.choices[0].message.content
 
-    conn = psycopg2.connect(**DB_PARAMS)
-    c = conn.cursor()
     c.execute("""
         INSERT INTO chat_logs (timestamp, user_id, user_message, bot_reply)
         VALUES (%s, %s, %s, %s)
