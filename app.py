@@ -565,6 +565,19 @@ def handle_message(event):
         return  # 結束這次處理，不再進入 ChatGPT API
 
 
+    c.execute("""
+        SELECT user_message, bot_reply FROM chat_logs
+        WHERE user_id = %s
+        ORDER BY id DESC
+        LIMIT 5
+    """, (user_id,))
+    recent_conversations = c.fetchall()
+    chat_history = []
+    for msg, reply in reversed(recent_conversations):
+        chat_history.append({"role": "user", "content": msg})
+        chat_history.append({"role": "assistant", "content": reply})
+
+
     # def filter_floors(user_input):
     #     result = []
 
@@ -594,9 +607,8 @@ def handle_message(event):
             {"role": "system", "content": (
                 "你是一位地板顧問，會根據使用者輸入進行公司介紹、地板知識說明"
                 f"\n以下是你可參考的知識內容：\n\n{knowledge_text}， 並且根據下列資料推薦適合的地板：{formatted_floor_info}"
-            )},
-            {"role": "user", "content": user_msg}
-        ],
+            )}
+        ] + chat_history + [{"role": "user", "content": user_msg}],
         temperature=0.7
     )
 
